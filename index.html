@@ -1,126 +1,84 @@
 <!DOCTYPE html>
 <html lang="ca">
 <head>
-  <meta charset="UTF-8">
-  <title>Webcam amb Delay i Efectes</title>
+  <meta charset="UTF-8" />
+  <title>Test Webcam Delay Diagnòstic</title>
   <style>
     body {
       font-family: sans-serif;
       text-align: center;
-      padding: 1em;
       background: #f0f0f0;
+      padding: 1em;
     }
     video, canvas {
       width: 640px;
       height: 480px;
       background: #000;
-      border: 2px solid #ccc;
       margin: 1em auto;
       display: block;
+      border: 2px solid #333;
     }
-    label, select, input {
-      margin-top: 1em;
-      font-size: 1rem;
+    #status {
+      font-size: 1.2em;
+      margin: 1em;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h1>Webcam amb Delay i Efectes</h1>
+  <h1>Diagnòstic Webcam Delay</h1>
   <video id="live" autoplay muted playsinline></video>
   <canvas id="delayed" width="640" height="480"></canvas>
-
-  <label for="delaySlider">Delay: <span id="delayValue">2000</span> ms</label><br>
-  <input type="range" id="delaySlider" min="0" max="5000" step="100" value="2000"><br><br>
-
-  <label for="effectSelect">Efecte:</label>
-  <select id="effectSelect">
-    <option value="none">Cap</option>
-    <option value="negative">Negatiu</option>
-    <option value="rgb">Modificació RGB</option>
-    <option value="posterize">Posterize</option>
-  </select>
+  <div id="status">Esperant vídeo...</div>
 
   <script>
     const video = document.getElementById('live');
     const canvas = document.getElementById('delayed');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    const delaySlider = document.getElementById('delaySlider');
-    const delayValue = document.getElementById('delayValue');
-    const effectSelect = document.getElementById('effectSelect');
-
-    let delay = parseInt(delaySlider.value, 10);
+    const status = document.getElementById('status');
+    const delay = 2000; // Delay fix de 2 segons
     const frames = [];
 
-    delaySlider.addEventListener('input', () => {
-      delay = parseInt(delaySlider.value, 10);
-      delayValue.textContent = delay;
-    });
-
-    function applyEffect(imageData, effect) {
-      const data = imageData.data;
-
-      switch (effect) {
-        case 'negative':
-          for (let i = 0; i < data.length; i += 4) {
-            data[i] = 255 - data[i];
-            data[i + 1] = 255 - data[i + 1];
-            data[i + 2] = 255 - data[i + 2];
-          }
-          break;
-
-        case 'rgb':
-          for (let i = 0; i < data.length; i += 4) {
-            let r = data[i], g = data[i + 1], b = data[i + 2];
-            data[i] = g;
-            data[i + 1] = b;
-            data[i + 2] = r;
-          }
-          break;
-
-        case 'posterize':
-          const levels = 4;
-          for (let i = 0; i < data.length; i += 4) {
-            data[i] = Math.floor(data[i] / (256 / levels)) * (256 / levels);
-            data[i + 1] = Math.floor(data[i + 1] / (256 / levels)) * (256 / levels);
-            data[i + 2] = Math.floor(data[i + 2] / (256 / levels)) * (256 / levels);
-          }
-          break;
-      }
-      return imageData;
+    function updateStatus(text) {
+      status.textContent = text;
     }
 
     navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
       video.srcObject = stream;
 
       video.addEventListener('loadeddata', () => {
-        function drawFrame() {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          frames.push({ time: Date.now(), frame });
-
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-          const now = Date.now();
-          const delayedFrame = frames.find(f => now - f.time >= delay);
-
-          if (delayedFrame) {
-            let processed = delayedFrame.frame;
-            processed = applyEffect(processed, effectSelect.value);
-            ctx.putImageData(processed, 0, 0);
-
-            while (frames.length && frames[0].time < delayedFrame.time) {
-              frames.shift();
-            }
-          }
-
-          requestAnimationFrame(drawFrame);
-        }
-
+        updateStatus("Capturant imatges correctament");
         drawFrame();
       });
     }).catch(err => {
-      alert("No s'ha pogut accedir a la càmera: " + err);
+      updateStatus("Error accedint a la càmera: " + err.message);
     });
+
+    function drawFrame() {
+      try {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        frames.push({ time: Date.now(), frame });
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const now = Date.now();
+        const delayedFrame = frames.find(f => now - f.time >= delay);
+
+        if (delayedFrame) {
+          ctx.putImageData(delayedFrame.frame, 0, 0);
+          while (frames.length && frames[0].time < delayedFrame.time) {
+            frames.shift();
+          }
+        } else {
+          updateStatus("Esperant frames amb delay...");
+        }
+      } catch(e) {
+        updateStatus("Error al processar el canvas: " + e.message);
+      }
+
+      requestAnimationFrame(drawFrame);
+    }
   </script>
 </body>
 </html>
