@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
   <meta charset="UTF-8" />
-  <title>Webcam amb Delay Visual</title>
+  <title>Webcam amb Delay Visual Sense getImageData</title>
   <style>
     body {
       font-family: sans-serif;
@@ -29,7 +29,7 @@
   </style>
 </head>
 <body>
-  <h1>Webcam amb Delay Visual</h1>
+  <h1>Webcam amb Delay Visual Sense getImageData</h1>
   
   <div id="controls">
     <label for="delaySlider">Delay (ms): <span id="delayValue">2000</span></label>
@@ -49,10 +49,10 @@
     let delay = parseInt(delaySlider.value, 10);
     delayValue.textContent = delay;
 
-    // Buffer per emmagatzemar vídeos amb timestamps
+    // Buffer de canvas temporals per emmagatzemar frames
     const frames = [];
 
-    // Creem vídeo invisible per capturar la webcam
+    // Vídeo ocult per capturar webcam
     const video = document.createElement('video');
     video.autoplay = true;
     video.muted = true;
@@ -88,23 +88,27 @@
     });
 
     function drawFrame() {
-      // Guardem el frame actual amb timestamp
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      frames.push({ time: Date.now(), image: ctx.getImageData(0, 0, canvas.width, canvas.height) });
+      // Creem un canvas temporal per guardar el frame actual
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Cerquem un frame amb el retard desitjat
+      // Guardem el canvas amb timestamp
+      frames.push({ time: Date.now(), canvas: tempCanvas });
+
+      // Cerquem frame amb retard
       const now = Date.now();
-      const delayedFrameIndex = frames.findIndex(f => now - f.time >= delay);
+      const delayedIndex = frames.findIndex(f => now - f.time >= delay);
 
-      if (delayedFrameIndex !== -1) {
-        // Pintem el frame amb delay
-        const frame = frames[delayedFrameIndex];
-        ctx.putImageData(frame.image, 0, 0);
+      if (delayedIndex !== -1) {
+        // Passem al canvas principal el frame amb retard
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(frames[delayedIndex].canvas, 0, 0, canvas.width, canvas.height);
 
-        // Netejem frames anteriors per no acumular massa memòria
-        frames.splice(0, delayedFrameIndex + 1);
-      } else {
-        // Si no tenim frame amb retard suficient, el canvas queda amb l'últim frame pintat
+        // Netejem frames antics
+        frames.splice(0, delayedIndex + 1);
       }
 
       requestAnimationFrame(drawFrame);
