@@ -2,81 +2,109 @@
 <html lang="ca">
 <head>
   <meta charset="UTF-8" />
-  <title>Test Webcam Delay Diagnòstic</title>
+  <title>Webcam amb Delay Visual</title>
   <style>
     body {
       font-family: sans-serif;
       text-align: center;
       background: #f0f0f0;
+      margin: 0;
       padding: 1em;
     }
-    video, canvas {
+    #delayed {
+      background: black;
+      border: 2px solid #333;
       width: 640px;
       height: 480px;
-      background: #000;
-      margin: 1em auto;
       display: block;
-      border: 2px solid #333;
+      margin: 1em auto;
     }
-    #status {
-      font-size: 1.2em;
-      margin: 1em;
-      font-weight: bold;
+    label, input, button {
+      font-size: 1.1rem;
+      margin: 0.5em;
+    }
+    #controls {
+      margin-bottom: 1em;
     }
   </style>
 </head>
 <body>
-  <h1>Diagnòstic Webcam Delay</h1>
-  <video id="live" autoplay muted playsinline></video>
+  <h1>Webcam amb Delay Visual</h1>
+  
+  <div id="controls">
+    <label for="delaySlider">Delay (ms): <span id="delayValue">2000</span></label>
+    <input type="range" id="delaySlider" min="0" max="5000" step="100" value="2000">
+    <button id="fullscreenBtn">Pantalla completa</button>
+  </div>
+  
   <canvas id="delayed" width="640" height="480"></canvas>
-  <div id="status">Esperant vídeo...</div>
 
   <script>
-    const video = document.getElementById('live');
     const canvas = document.getElementById('delayed');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    const status = document.getElementById('status');
-    const delay = 2000; // Delay fix de 2 segons
+    const ctx = canvas.getContext('2d');
+    const delaySlider = document.getElementById('delaySlider');
+    const delayValue = document.getElementById('delayValue');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+    let delay = parseInt(delaySlider.value, 10);
+    delayValue.textContent = delay;
+
+    // Buffer per emmagatzemar vídeos amb timestamps
     const frames = [];
 
-    function updateStatus(text) {
-      status.textContent = text;
-    }
+    // Creem vídeo invisible per capturar la webcam
+    const video = document.createElement('video');
+    video.autoplay = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.style.display = 'none';
+    document.body.appendChild(video);
+
+    delaySlider.addEventListener('input', () => {
+      delay = parseInt(delaySlider.value, 10);
+      delayValue.textContent = delay;
+    });
+
+    fullscreenBtn.addEventListener('click', () => {
+      if (canvas.requestFullscreen) {
+        canvas.requestFullscreen();
+      } else if (canvas.webkitRequestFullscreen) { /* Safari */
+        canvas.webkitRequestFullscreen();
+      } else if (canvas.msRequestFullscreen) { /* IE11 */
+        canvas.msRequestFullscreen();
+      }
+    });
 
     navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
       video.srcObject = stream;
 
-      video.addEventListener('loadeddata', () => {
-        updateStatus("Capturant imatges correctament");
+      video.addEventListener('loadedmetadata', () => {
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
         drawFrame();
       });
     }).catch(err => {
-      updateStatus("Error accedint a la càmera: " + err.message);
+      alert("No s'ha pogut accedir a la càmera: " + err.message);
     });
 
     function drawFrame() {
-      try {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        frames.push({ time: Date.now(), frame });
+      // Guardem el frame actual amb timestamp
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      frames.push({ time: Date.now(), image: ctx.getImageData(0, 0, canvas.width, canvas.height) });
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Cerquem un frame amb el retard desitjat
+      const now = Date.now();
+      const delayedFrameIndex = frames.findIndex(f => now - f.time >= delay);
 
-        const now = Date.now();
-        const delayedFrame = frames.find(f => now - f.time >= delay);
+      if (delayedFrameIndex !== -1) {
+        // Pintem el frame amb delay
+        const frame = frames[delayedFrameIndex];
+        ctx.putImageData(frame.image, 0, 0);
 
-        if (delayedFrame) {
-  // Posa la imatge diferent: dibuixa directament el vídeo en lloc del frame retardat
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  updateStatus("Mostrant vídeo amb delay (simulat sense processar)");
-  while (frames.length && frames[0].time < delayedFrame.time) {
-    frames.shift();
-  }
-} else {
-  updateStatus("Esperant frames amb delay...");
-}
-      } catch(e) {
-        updateStatus("Error al processar el canvas: " + e.message);
+        // Netejem frames anteriors per no acumular massa memòria
+        frames.splice(0, delayedFrameIndex + 1);
+      } else {
+        // Si no tenim frame amb retard suficient, el canvas queda amb l'últim frame pintat
       }
 
       requestAnimationFrame(drawFrame);
