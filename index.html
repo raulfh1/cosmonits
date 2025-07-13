@@ -40,30 +40,36 @@
     });
 
     function drawFrame() {
-      try {
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = canvas.height;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        frames.push({ time: Date.now(), canvas: tempCanvas });
+  try {
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    tempCanvas.style.display = 'none';   // IMPORTANT: OCULT però a DOM
+    document.body.appendChild(tempCanvas);
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    frames.push({ time: Date.now(), canvas: tempCanvas });
 
-        const now = Date.now();
-        const idx = frames.findIndex(f => now - f.time >= delay);
+    const now = Date.now();
+    const idx = frames.findIndex(f => now - f.time >= delay);
 
-        if (idx !== -1) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(frames[idx].canvas, 0, 0);
-          frames.splice(0, idx + 1);
-          console.log("Mostrant frame amb retard");
-        } else {
-          console.log("Esperant retard...");
-        }
-      } catch(e) {
-        console.error("Error en drawFrame:", e);
-      }
-      requestAnimationFrame(drawFrame);
+    if (idx !== -1) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(frames[idx].canvas, 0, 0);
+      
+      // Treu el canvas temporal del DOM per netejar
+      document.body.removeChild(frames[idx].canvas);
+      
+      frames.splice(0, idx + 1);
+      console.log("Mostrant frame amb retard");
+    } else {
+      console.log("Esperant retard...");
     }
+  } catch(e) {
+    console.error("Error en drawFrame:", e);
+  }
+  requestAnimationFrame(drawFrame);
+}
   </script>
 </body>
 </html>
