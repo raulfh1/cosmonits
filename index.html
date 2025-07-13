@@ -66,13 +66,15 @@
         const delayedFrame = frames.find(f => now - f.time >= delay);
 
         if (delayedFrame) {
-          ctx.putImageData(delayedFrame.frame, 0, 0);
-          while (frames.length && frames[0].time < delayedFrame.time) {
-            frames.shift();
-          }
-        } else {
-          updateStatus("Esperant frames amb delay...");
-        }
+  // Posa la imatge diferent: dibuixa directament el vídeo en lloc del frame retardat
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  updateStatus("Mostrant vídeo amb delay (simulat sense processar)");
+  while (frames.length && frames[0].time < delayedFrame.time) {
+    frames.shift();
+  }
+} else {
+  updateStatus("Esperant frames amb delay...");
+}
       } catch(e) {
         updateStatus("Error al processar el canvas: " + e.message);
       }
