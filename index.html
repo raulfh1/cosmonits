@@ -27,7 +27,7 @@
 <body>
   <h1>Webcam amb Delay i Efectes</h1>
   <video id="live" autoplay muted playsinline></video>
-  <canvas id="delayed"></canvas>
+  <canvas id="delayed" width="640" height="480"></canvas>
 
   <label for="delaySlider">Delay: <span id="delayValue">2000</span> ms</label><br>
   <input type="range" id="delaySlider" min="0" max="5000" step="100" value="2000"><br><br>
@@ -92,10 +92,7 @@
     navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
       video.srcObject = stream;
 
-      video.addEventListener('loadedmetadata', () => {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-
+      video.addEventListener('loadeddata', () => {
         function drawFrame() {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
